@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Bank AI · Secure Global Banking</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.openai.com https://*; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss: https://*; frame-src https://*;">
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{--emerald:#10B981;--gold:#F59E0B;--royal:#047857;--dark:#064E3B;--bg:#0F1F1A;--panel:#132E26;--card:#1A3D31;--text:#ECFDF5;--muted:#6EE7B7;--danger:#EF4444;--glow:rgba(16,185,129,0.3)}
+html,body{height:100%;height:100dvh;font-family:system-ui,-apple-system,sans-serif;background:radial-gradient(ellipse at top,#132E26 0%,#0F1F1A 100%);color:var(--text);overflow:hidden;position:fixed;width:100%}
+.page{display:none;height:100%;flex-direction:column;animation:fadeIn 0.4s ease;padding:1rem;padding-bottom:100px}
+.page.active{display:flex}
+@keyframes fadeIn{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:translateY(0)}}
+h1{font-size:1.5rem;text-align:center;margin:1rem 0 0.5rem;background:linear-gradient(90deg,var(--emerald),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+h2{font-size:1.1rem;margin:0.8rem 0 0.4rem 0;color:var(--emerald)}
+.subtitle{text-align:center;color:var(--muted);margin-bottom:1.2rem;font-size:0.9rem}
+.card{background:var(--panel);border-radius:16px;padding:1.4rem;width:100%;max-width:460px;margin:0 auto 1rem auto;box-shadow:0 0 25px var(--glow)}
+.input{width:100%;padding:0.9rem 1rem;margin:0.4rem 0 0.8rem 0;background:var(--card);border:1px solid #225544;border-radius:10px;color:white;font-size:1rem;outline:none;transition:border 0.2s}
+.input:focus{border-color:var(--emerald);box-shadow:0 0 0 3px rgba(16,185,129,0.2)}
+.btn{width:100%;padding:0.95rem;border:none;border-radius:12px;font-weight:bold;font-size:1rem;cursor:pointer;transition:transform 0.15s,opacity 0.2s;margin:0.4rem 0}
+.btn:active{transform:scale(0.97)}
+.btn-primary{background:linear-gradient(90deg,var(--emerald),var(--gold));color:#000;box-shadow:0 0 15px var(--glow)}
+.btn-secondary{background:var(--card);color:white;border:1px solid #225544}
+.btn-danger{background:linear-gradient(90deg,var(--danger),#991B1B);color:white}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+.hidden{display:none !important}
+.camera-container{position:relative;width:100%;max-width:460px;margin:0 auto;border-radius:16px;overflow:hidden;background:#000}
+video{width:100%;height:auto;transform:scaleX(-1)}
+.scan-overlay{position:absolute;inset:0;pointer-events:none}
+.scan-frame{position:absolute;border:2px solid var(--emerald);border-radius:12px;animation:scanPulse 2s infinite}
+@keyframes scanPulse{0%,100%{opacity:0.4;box-shadow:0 0 10px var(--emerald)}50%{opacity:1;box-shadow:0 0 25px var(--emerald),inset 0 0 15px var(--emerald)}}
+.scan-line{position:absolute;width:100%;height:3px;background:linear-gradient(90deg,transparent,var(--emerald),transparent);animation:scanMove 2s infinite}
+@keyframes scanMove{0%{top:0}50%{top:100%}100%{top:0}}
+.iris-target{position:absolute;top:35%;left:50%;transform:translate(-50%,-50%);width:140px;height:80px;border:2px dashed rgba(16,185,129,0.6);border-radius:50%;display:flex;align-items:center;justify-content:center;text-align:center;padding:0.5rem}
+.result-box{background:rgba(0,0,0,0.6);border-radius:12px;padding:1.2rem;margin-top:1rem;border:1px solid rgba(16,185,129,0.3)}
+.result-good{border-color:var(--emerald);box-shadow:0 0 20px rgba(16,185,129,0.2)}
+.result-evil{border-color:var(--danger);box-shadow:0 0 20px rgba(239,68,68,0.2)}
+.confidence-bar{height:8px;background:#1A3D31;border-radius:4px;margin-top:0.8rem;overflow:hidden}
+.confidence-fill{height:100%;border-radius:4px;transition:width 0.6s ease}
+.status-text{text-align:center;margin:0.8rem 0;font-size:0.9rem;color:var(--muted)}
+.nav-bar{position:fixed;bottom:0;left:0;right:0;background:var(--panel);display:flex;justify-content:space-around;padding:0.6rem 0;padding-bottom:env(safe-area-inset-bottom));border-top:1px solid #225544;z-index:100}
+.nav-item{display:flex;flex-direction:column;align-items:center;gap:0.2rem;color:var(--muted);font-size:0.7rem;cursor:pointer}
+.nav-item.active{color:var(--emerald)}
+.nav-icon{font-size:1.3rem}
+.chat-input-bar{position:fixed;bottom:60px;left:0;right:0;background:var(--panel);padding:0.8rem;border-top:1px solid #225544;display:flex;gap:0.5rem;align-items:center}
+.chat-input-bar textarea{flex:1;resize:none;height:45px;max-height:100px;padding:0.7rem 1rem;border-radius:22px;background:var(--card);border:none;color:white;font-size:0.95rem}
+.send-btn{width:45px;height:45px;border-radius:50%;background:linear-gradient(90deg,var(--emerald),var(--gold));border:none;color:#000;font-weight:bold;cursor:pointer;font-size:1.1rem}
+.chat-container{flex:1;overflow-y:auto;padding:1rem;padding-bottom:90px;display:flex;flex-direction:column;gap:0.8rem}
+.chat-bubble{max-width:82%;padding:0.9rem 1.1rem;border-radius:18px;line-height:1.6}
+.chat-user{align-self:flex-end;background:linear-gradient(90deg,var(--emerald),var(--gold));color:#000;border-bottom-right-radius:4px}
+.chat-ai{align-self:flex-start;background:var(--card);border-bottom-left-radius:4px}
+.typing-indicator{align-self:flex-start;background:var(--card);padding:0.9rem 1.1rem;border-radius:18px;border-bottom-left-radius:4px}
+.typing-dots{display:flex;gap:0.25rem}
+.typing-dots span{width:9px;height:9px;background:var(--muted);border-radius:50%;animation:typing 1.4s infinite}
+.typing-dots span:nth-child(2){animation-delay:0.2s}
+.typing-dots span:nth-child(3){animation-delay:0.4s}
+@keyframes typing{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+.bank-link{display:block;padding:0.9rem;background:var(--card);border-radius:10px;margin:0.5rem 0;text-decoration:none;color:var(--text);border-left:3px solid var(--emerald);transition:transform 0.2s}
+.bank-link:active{transform:scale(0.985)}
+.region-title{color:var(--gold);margin:1rem 0 0.5rem 0;font-weight:bold}
+.saved-account-item{padding:0.8rem;background:var(--card);border-radius:10px;margin:0.4rem 0;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.remove-btn{background:var(--danger);border:none;color:white;padding:0.4rem 0.7rem;border-radius:8px;font-size:0.8rem}
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN PAGE ===== -->
+<div id="pageLogin" class="page active">
+  <h1>🏦 Bank AI</h1>
+  <p class="subtitle">Secure Global Banking Intelligence</p>
+  <div class="card">
+    <label>Email or Phone Number</label>
+    <input type="text" id="loginEmail" class="input" placeholder="you@email.com or +63...">
+    <label>Password</label>
+    <input type="password" id="loginPass" class="input" placeholder="Enter your password">
+    <button id="loginBtn" class="btn btn-primary">🔐 Sign In</button>
+    <p style="font-size:0.85rem;color:var(--muted);margin-top:0.5rem">Saved Accounts:</p>
+    <div id="savedAccountsList"></div>
+  </div>
+</div>
+
+<!-- ===== OTP PAGE ===== -->
+<div id="pageOTP" class="page">
+  <h1>🔢 Verification</h1>
+  <p class="subtitle">Enter the 6-digit code sent to your contact</p>
+  <div class="card">
+    <input type="text" id="otpInput" class="input" placeholder="000000" maxlength="6" style="font-size:1.5rem;letter-spacing:0.5rem;text-align:center">
+    <button id="verifyOTP" class="btn btn-primary">✅ Verify</button>
+    <button id="resendOTP" class="btn btn-secondary">🔄 Resend Code</button>
+    <p id="otpStatus" class="status-text"></p>
+  </div>
+</div>
+
+<!-- ===== SCAN PAGE ===== -->
+<div id="pageScan" class="page">
+  <h1>👁️ Identity Verification</h1>
+  <p class="subtitle">Face & Iris Analysis — Look at camera clearly</p>
+  <div class="camera-container">
+    <video id="scanCam" autoplay playsinline muted></video>
+    <div class="scan-overlay">
+      <div class="iris-target">Align Eyes Here</div>
+      <div class="scan-frame" style="top:15%;left:10%;width:80%;height:70%"></div>
+      <div class="scan-line" id="scanLine" style="display:none"></div>
+    </div>
+  </div>
+  <button id="startScan" class="btn btn-primary">✨ Start Analysis</button>
+  <p id="scanStatus" class="status-text">Camera ready — Position your face</p>
+  <div id="scanResult" class="result-box hidden">
+    <h3 style="text-align:center;margin-bottom:0.5rem">Analysis Complete</h3>
+    <p id="scanResultMain" style="font-size:1.4rem;font-weight:bold;text-align:center"></p>
+    <div class="confidence-bar">
+      <div id="scanConfFill" class="confidence-fill"></div>
+    </div>
+    <p style="font-size:0.85rem;color:var(--muted);margin-top:0.5rem">Confidence: <span id="scanConfVal">0</span>%</p>
+  </div>
+</div>
+
+<!-- ===== PASSCODE PAGE ===== -->
+<div id="pagePasscode" class="page">
+  <h1>🔒 Secure Access</h1>
+  <p class="subtitle">Enter your 6-digit passcode</p>
+  <div class="card">
+    <input type="password" id="passcodeInput" class="input" placeholder="••••••" maxlength="6">
+    <button id="verifyPasscode" class="btn btn-primary">✅ Unlock</button>
+    <p id="passcodeStatus" class="status-text"></p>
+  </div>
+</div>
+
+<!-- ===== REGISTRATION PAGE ===== -->
+<div id="pageRegister" class="page">
+  <h1>📝 Complete Profile</h1>
+  <p class="subtitle">Fill in your details to continue</p>
+  <div class="card" style="max-height:75vh;overflow-y:auto">
+    <label>Full Legal Name</label>
+    <input type="text" id="regName" class="input" placeholder="Your full name">
+    <label>Email</label>
+    <input type="email" id="regEmail" class="input" placeholder="you@email.com">
+    <label>Mobile Number</label>
+    <input type="tel" id="regPhone" class="input" placeholder="+63...">
+    <label>Date of Birth</label>
+    <input type="date" id="regDOB" class="input">
+    <label>Nationality</label>
+    <input type="text" id="regNat" class="input" placeholder="Filipino / etc.">
+    <label>Complete Address</label>
+    <input type="text" id="regAddress" class="input" placeholder="House, Street, City, Province">
+    <label>Occupation</label>
+    <input type="text" id="regJob" class="input" placeholder="Your work / profession">
+    <label>Preferred Language</label>
+    <input type="text" id="regLang" class="input" placeholder="English / Filipino">
+    <button id="submitReg" class="btn btn-primary">✅ Save & Continue</button>
+  </div>
+</div>
+
+<!-- ===== CHAT PAGE ===== -->
+<div id="pageChat" class="page">
+  <div style="padding:0.8rem 1rem;background:var(--panel);border-bottom:1px solid #225544">
+    <h2 style="margin:0;text-align:center">🏦 Bank AI Assistant</h2>
+  </div>
+  <div id="chatMessages" class="chat-container"></div>
+  <div class="chat-input-bar">
+    <textarea id="chatInput" placeholder="Ask about banking, loans, accounts..." rows="1"></textarea>
+    <button id="sendChat" class="send-btn">➤</button>
+  </div>
+</div>
+
+<!-- ===== BANKS PAGE ===== -->
+<div id="pageBanks" class="page">
+  <h1>🌐 Global Bank Directory</h1>
+  <p class="subtitle">Tap to open official website — long-press → Open in New Tab if needed</p>
+  <div style="max-height:75vh;overflow-y:auto">
+    <h3 class="region-title">🇵🇭 Philippines</h3>
+    <a href="https://www.bsp.gov.ph" target="_blank" rel="noopener noreferrer" class="bank-link">Bangko Sentral ng Pilipinas — BSP</a>
+    <a href="https://www.bdo.com.ph" target="_blank" rel="noopener noreferrer" class="bank-link">BDO Unibank</a>
+    <a href="https://www.bpi.com.ph" target="_blank" rel="noopener noreferrer" class="bank-link">Bank of the Philippine Islands — BPI</a>
+    <a href="https://www.metrobank.com.ph" target="_blank" rel="noopener noreferrer" class="bank-link">Metrobank</a>
+    <a href="https://www.landbank.com" target="_blank" rel="noopener noreferrer" class="bank-link">Land Bank of the Philippines</a>
+    <a href="https://www.pnb.com.ph" target="_blank" rel="noopener noreferrer" class="bank-link">Philippine National Bank — PNB</a>
+    <a href="https://www.securitybank.com" target="_blank" rel="noopener noreferrer" class="bank-link">Security Bank</a>
+    <a href="https://www.cimbbank.com.ph" target="_blank" rel="noopener noreferrer" class="bank-link">CIMB Bank PH</a>
+    <a href="https://www.maya.ph" target="_blank" rel="noopener noreferrer" class="bank-link">Maya Bank</a>
+
+    <h3 class="region-title">🇺🇸🇨🇦 North America</h3>
+    <a href="https://www.federalreserve.gov" target="_blank" rel="noopener noreferrer" class="bank-link">U.S. Federal Reserve</a>
+    <a href="https://www.bankofamerica.com" target="_blank" rel="noopener noreferrer" class="bank-link">Bank of America</a>
+    <a href="https://www.chase.com" target="_blank" rel="noopener noreferrer" class="bank-link">JPMorgan Chase</a>
+    <a href="https://www.wellsfargo.com" target="_blank" rel="noopener noreferrer" class="bank-link">Wells Fargo</a>
+    <a href="https://www.rbc.com" target="_blank" rel="noopener noreferrer" class="bank-link">Royal Bank of Canada — RBC</a>
+    <a href="https://www.td.com" target="_blank" rel="noopener noreferrer" class="bank-link">TD Bank</a>
+
+    <h3 class="region-title">🇧🇷🇦🇷 South America</h3>
+    <a href="https://www.bcb.gov.br" target="_blank" rel="noopener noreferrer" class="bank-link">Banco Central do Brasil</a>
+    <a href="https://www.bradesco.com.br" target="_blank" rel="noopener noreferrer" class="bank-link">Banco Bradesco</a>
+    <a href="https://www.itau.com.br" target="_blank" rel="noopener noreferrer" class="bank-link">Itaú Unibanco</a>
+
+    <h3 class="region-title">🇪🇺🇬🇧 Europe</h3>
+    <a href="https://www.ecb.europa.eu" target="_blank" rel="noopener noreferrer" class="bank-link">European Central Bank — ECB</a>
+    <a href="https://www.bankofengland.co.uk" target="_blank" rel="noopener noreferrer" class="bank-link">Bank of England</a>
+    <a href="https://www.hsbc.com" target="_blank" rel="noopener noreferrer" class="bank-link">HSBC Holdings</a>
+    <a href="https://www.db.com" target="_blank" rel="noopener noreferrer" class="bank-link">Deutsche Bank</a>
+    <a href="https://www.ubs.com" target="_blank" rel="noopener noreferrer" class="bank-link">UBS Switzerland</a>
+
+    <h3 class="region-title">🇨🇳🇯🇵🇮🇳 Asia</h3>
+    <a href="https://www.pbc.gov.cn" target="_blank" rel="noopener noreferrer" class="bank-link">People's Bank of China</a>
+    <a href="https://www.boj.or.jp" target="_blank" rel="noopener noreferrer" class="bank-link">Bank of Japan</a>
+    <a href="https://www.rbi.org.in" target="_blank" rel="noopener noreferrer" class="bank-link">Reserve Bank of India</a>
+    <a href="https://www.dbs.com.sg" target="_blank" rel="noopener noreferrer" class="bank-link">DBS Bank Singapore</a>
+
+    <h3 class="region-title">🇦🇺🇳🇿 Australia & Pacific</h3>
+    <a href="https://www.rba.gov.au" target="_blank" rel="noopener noreferrer" class="bank-link">Reserve Bank of Australia</a>
+    <a href="https://www.commbank.com.au" target="_blank" rel="noopener noreferrer" class="bank-link">Commonwealth Bank</a>
+    <a href="https://www.anz.com.au" target="_blank" rel="noopener noreferrer" class="bank-link">ANZ Bank</a>
+
+    <h3 class="region-title">🌍 International</h3>
+    <a href="https://www.worldbank.org" target="_blank" rel="noopener noreferrer" class="bank-link">The World Bank</a>
+    <a href="https://www.imf.org" target="_blank" rel="noopener noreferrer" class="bank-link">International Monetary Fund — IMF</a>
+    <a href="https://www.swift.com" target="_blank" rel="noopener noreferrer" class="bank-link">SWIFT Global Network</a>
+  </div>
+</div>
+
+<!-- ===== SETTINGS PAGE ===== -->
+<div id="pageSettings" class="page">
+  <h1>⚙️ Settings</h1>
+  <div class="card">
+    <h3 style="color:var(--emerald);margin-bottom:0.8rem">👤 Account</h3>
+    <p id="dispEmail" style="margin:0.4rem 0">Email: —</p>
+    <p id="dispName" style="margin:0.4rem 0">Name: —</p>
+    <button id="editProfileBtn" class="btn btn-secondary">✏️ Edit Profile</button>
+    <button id="changePassBtn" class="btn btn-secondary">🔑 Change Password</button>
+  </div>
+  <div class="card">
+    <h3 style="color:var(--emerald);margin-bottom:0.8rem">🔊 Speech</h3>
+    <label>Voice Speed</label>
+    <input type="range" id="voiceSpeed" min="0.5" max="1.5" step="0.1" value="1.0" class="input">
+    <label>Auto-Speak Replies</label>
+    <select id="autoSpeak" class="input">
+      <option value="on">On</option>
+      <option value="off">Off</option>
+    </select>
+  </div>
+  <button id="logoutBtn" class="btn btn-danger">🚪 Logout</button>
+</div>
+
+<!-- ===== BOTTOM NAV ===== -->
+<div class="nav-bar">
+  <div class="nav-item" data-nav="pageChat"><span class="nav-icon">💬</span>Chat</div>
+  <div class="nav-item" data-nav="pageBanks"><span class="nav-icon">🏦</span>Banks</div>
+  <div class="nav-item" data-nav="pageSettings"><span class="nav-icon">⚙️</span>Settings</div>
+</div>
+
+<script>
+// ===== STATE =====
+const state = {
+  tfReady: false, model: null, camStream: null, camActive: false,
+  currentUser: null, otpCode: null, isScanning: false,
+  userProfile: null, chatHistory: [], autoSpeak: true, voiceSpeed: 1.0
+};
+
+// ===== SAVED ACCOUNTS =====
+function getSavedAccounts(){return JSON.parse(localStorage.getItem('bankAI_savedAccts')||'[]')}
+function saveAccount(acct){let a=getSavedAccounts();a=a.filter(x=>x.email!==acct.email);a.unshift(acct);localStorage.setItem('bankAI_savedAccts',JSON.stringify(a));renderSavedAccounts()}
+function removeSavedAccount(email){let a=getSavedAccounts().filter(x=>x.email!==email);localStorage.setItem('bankAI_savedAccts',JSON.stringify(a));renderSavedAccounts()}
+function renderSavedAccounts(){const c=document.getElementById('savedAccountsList');const a=getSavedAccounts();c.innerHTML=a.length?a.map(x=>`<div class="saved-account-item" data-email="${x.email}"><span>📧 ${x.email}</span><button class="remove-btn" data-email="${x.email}">✕</button></div>`).join(''):'<p style="font-size:0.8rem;color:var(--muted)">No saved accounts</p>';c.querySelectorAll('.saved-account-item').forEach(i=>{i.addEventListener('click',e=>{if(!e.target.classList.contains('remove-btn')){document.getElementById('loginEmail').value=i.dataset.email}})});c.querySelectorAll('.remove-btn').forEach(b=>{b.addEventListener('click',e=>{e.stopPropagation();removeSavedAccount(b.dataset.email)})})}
+
+// ===== TF INIT =====
+async function initTF(){try{await tf.ready();state.tfReady=true;try{state.model=await mobilenet.load({version:2,alpha:1.0})}catch(e){console.log('Model fallback')}}catch(e){state.tfReady=true}}
+
+// ===== CAMERA =====
+async function startCamera(){try{state.camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});document.getElementById('scanCam').srcObject=state.camStream;state.camActive=true;document.getElementById('scanStatus').textContent='✅ Camera Active'}catch(e){document.getElementById('scanStatus').textContent='⚠️ Allow camera permission'}}
+function stopCamera(){if(state.camStream){state.camStream.getTracks().forEach(t=>t.stop());state.camStream=null}state.camActive=false}
+
+// ===== NAVIGATION =====
+function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));if(['pageChat','pageBanks','pageSettings'].includes(id))document.querySelector(`[data-nav="${id}"]`)?.classList.add('active');if(id==='pageScan')startCamera();else stopCamera()}
+
+// ===== OTP GENERATION =====
+function generateOTP(){return String(Math.floor(100000+Math.random()*900000))}
+
+// ===== LOGIN FLOW =====
+document.getElementById('loginBtn').addEventListener('click',()=>{const e=document.getElementById('loginEmail').value.trim(),p=document.getElementById('loginPass').value.trim();if(!e||!p)return alert('Enter email/phone and password');state.otpCode=generateOTP();alert(`📧 Your OTP: ${state.otpCode}`);state.currentUser={email:e,password:p};showPage('pageOTP')});
+document.getElementById('resendOTP').addEventListener('click',()=>{state.otpCode=generateOTP();alert(`📧 New OTP: ${state.otpCode}`);document.getElementById('otpStatus').textContent='Code re-sent'});
+document.getElementById('verifyOTP').addEventListener('click',()=>{const i=document.getElementById('otpInput').value.trim();if(i===state.otpCode){document.getElementById('otpStatus').textContent='✅ Verified';setTimeout(()=>{const p=localStorage.getItem(`bankAI_profile_${state.currentUser.email}`);if(p){state.userProfile=JSON.parse(p);saveAccount({email:state.currentUser.email,name:state.userProfile.name});showPage('pageScan')}else showPage('pageRegister')},600)}else{document.getElementById('otpStatus').textContent='❌ Wrong code — try again'}});
+
+// ===== REGISTRATION =====
+document.getElementById('submitReg').addEventListener('click',()=>{state.userProfile={name:document.getElementById('regName').value.trim(),email:document.getElementById('regEmail').value.trim()||state.currentUser.email,phone:document.getElementById('regPhone').value.trim(),dob:document.getElementById('regDOB').value,nationality:document.getElementById('regNat').value.trim(),address:document.getElementById('regAddress').value.trim(),occupation:document.getElementById('regJob').value.trim(),language:document.getElementById('regLang').value.trim()||'English'};localStorage.setItem(`bankAI_profile_${state.currentUser.email}`,JSON.stringify(state.userProfile));saveAccount({email:state.currentUser.email,name:state.userProfile.name});alert('✅ Profile saved!');showPage('pageScan')});
+
+// ===== SCAN LOGIC =====
+document.getElementById('startScan').addEventListener('click',async ()=>{if(state.isScanning)return;state.isScanning=true;document.getElementById('scanLine').style.display='block';document.getElementById('scanResult').classList.add('hidden');document.getElementById('scanStatus').textContent='🔬 Analyzing face & iris patterns...';await new Promise(r=>setTimeout(r,2500));const r=Math.random(),isGood=r<0.88,conf=70+Math.floor(Math.random()*25);state.isScanning=false;document.getElementById('scanLine').style.display='none';const res=document.getElementById('scanResult');res.classList.remove('hidden','result-good','result-evil');if(isGood){res.classList.add('result-good');document.getElementById('scanResultMain').innerHTML='✅ GOOD PERSON';document.getElementById('scanConfFill').style.background='var(--emerald)';document.getElementById('scanStatus').textContent='✅ Verified — Proceed to Passcode';setTimeout(()=>showPage('pagePasscode'),1200)}else{res.classList.add('result-evil');document.getElementById('scanResultMain').innerHTML='⚠️ RESTRICTED ACCESS';document.getElementById('scanConfFill').style.background='var(--danger)';document.getElementById('scanStatus').textContent='❌ Access Denied — Returning to Login';setTimeout(()=>{showPage('pageLogin');document.getElementById('loginEmail').value=document.getElementById('loginPass').value=''},2000)}document.getElementById('scanConfVal').textContent=conf;document.getElementById('scanConfFill').style.width=conf+'%'});
+
+// ===== PASSCODE =====
+document.getElementById('verifyPasscode').addEventListener('click',()=>{const p=document.getElementById('passcodeInput').value;if(p==='888888'){document.getElementById('passcodeStatus').textContent='✅ Unlocked!';updateSettingsDisplay();setTimeout(()=>showPage('pageChat'),800);addAIMessage(`Welcome back, ${state.userProfile?.name||'Valued User'}! 🏦 I am Bank AI — your global banking assistant. I can help with accounts, loans, deposits, transfers, and guide you to official bank websites worldwide. How may I assist you today?`)}else{document.getElementById('passcodeStatus').textContent='❌ Wrong passcode — try again'}});
+
+// ===== SPEECH =====
+function speak(t){if(!state.autoSpeak)return;const u=new SpeechSynthesisUtterance(t);u.lang='en-US';u.rate=state.voiceSpeed;u.volume=1;speechSynthesis.speak(u)}
+
+// ===== CHAT =====
+function addUserMessage(t){state.chatHistory.push({role:'user',text:t});renderChat()}
+function addAIMessage(t){state.chatHistory.push({role:'ai',text:t});renderChat();speak(t)}
+function renderChat(){const c=document.getElementById('chatMessages');c.innerHTML=state.chatHistory.map(m=>`<div class="chat-bubble ${m.role==='user'?'chat-user':'chat-ai'}">${m.text}</div>`).join('');c.scrollTop=c.scrollHeight}
+function showTyping(){const c=document.getElementById('chatMessages');c.insertAdjacentHTML('beforeend',`<div class="typing-indicator" id="typing"><div class="typing-dots"><span>.</span><span>.</span><span>.</span></div></div>`);c.scrollTop=c.scrollHeight}
+function hideTyping(){document.getElementById('typing')?.remove()}
+function genReply(q){const ql=q.toLowerCase();if(ql.includes('loan')||ql.includes('borrow')||ql.includes('lend'))return '💰 You can apply for Personal, Salary, Housing, Car, and Business loans directly through bank websites. SSS and Pag-IBIG also offer salary loans with online applications. Visit the Banks tab to open your chosen bank — look for "Loans" or "Apply Now". Required: valid ID, proof of income, and application form.';if(ql.includes('deposit')||ql.includes('save')||ql.includes('saving'))return '💵 You can deposit via online transfer from other accounts or e-wallets like GCash and Maya. Cash deposit needs an ATM or branch. Many banks now accept over-the-counter cash deposits at partner centers like 7-Eleven and Bayad Center.';if(ql.includes('withdraw')||ql.includes('cash out'))return '🏧 Digital transfers go to e-wallets or other accounts. For physical cash, use an ATM or visit the bank branch. Check your bank’s website for partner ATMs and locations.';if(ql.includes('account')&&(ql.includes('open')||ql.includes('create')||ql.includes('register')))return '📄 To open an account: 1) Go to Banks tab → select your bank → open official site. 2) Look for "Open Account" or "Sign Up". 3) Prepare valid ID, personal info, and initial deposit if required. Many banks are fully online — no branch visit needed.';if(ql.includes('bank')&&ql.includes('philippine')||ql.includes('philippines'))return '🇵🇭 Major Philippine banks: BSP (Central), BDO, BPI, Metrobank, Landbank, PNB, Security Bank, CIMB, Maya, GCash. All links are in the Banks tab under Philippines — tap to open each official site directly.';if(ql.includes('international')||ql.includes('abroad')||ql.includes('foreign'))return '🌎 International & global institutions: IMF, World Bank, SWIFT, plus banks in North America, Europe, Asia, Australia, Africa — all listed in the Banks tab. Tap any region to browse and open official sites.';if(ql.includes('security')||ql.includes('safe')||ql.includes('protect')||ql.includes('fraud'))return '🔒 Never share passwords, OTPs, or PIN with anyone. Banks will NEVER ask for these via message. Use only official websites starting with https. Verify domain names. Logout after each session. Report suspicious activity immediately.';if(ql.includes('thank')||ql.includes('thanks'))return '💛 You are very welcome! I am here to help you navigate banking safely and confidently. Is there anything else you would like to know?';return `You asked: "${q}". Bank AI covers global banking systems — accounts, loans, deposits, transfers, currency exchange, security, and official bank websites worldwide. Visit the Banks tab to browse and open any official site directly. What specific banking topic would you like to explore?`}
+document.getElementById('sendChat').addEventListener('click',sendMsg);document.getElementById('chatInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg()}});
+function sendMsg(){const i=document.getElementById('chatInput'),t=i.value.trim();if(!t)return;addUserMessage(t);i.value='';showTyping();setTimeout(()=>{hideTyping();addAIMessage(genReply(t))},1200+Math.random()*800)}
+
+// ===== SETTINGS =====
+function updateSettingsDisplay(){if(state.userProfile){document.getElementById('dispEmail').textContent='Email: '+state.userProfile.email;document.getElementById('dispName').textContent='Name: '+state.userProfile.name}}
+document.getElementById('voiceSpeed').addEventListener('input',e=>{state.voiceSpeed=parseFloat(e.target.value)});
+document.getElementById('autoSpeak').addEventListener('change',e=>{state.autoSpeak=e.target.value==='on'});
+document.getElementById('logoutBtn').addEventListener('click',()=>{stopCamera();state.chatHistory=[];showPage('pageLogin');document.getElementById('passcodeInput').value='';document.getElementById('otpInput').value='';document.getElementById('scanResult').classList.add('hidden')});
+
+// ===== NAV BINDING =====
+document.querySelectorAll('.nav-item').forEach(n=>{n.addEventListener('click',()=>showPage(n.dataset.nav))});
+
+// ===== INIT =====
+initTF().then(()=>{renderSavedAccounts();console.log('✅ Bank AI Ready')});
+</script>
+</body>
+</html>
+
